@@ -94,7 +94,7 @@ git checkout main
 git pull origin main
 ```
 
-### STEP 2: SAVE YOUR WORK
+### Step 2: Save Your Work
 
 ```bash
 # Stage your files for the commit. The "." adds all changed files.
@@ -104,14 +104,14 @@ git add .
 git commit -m "feat: add database parsing"
 ```
 
-### STEP 3: UPLOAD YOUR WORK
+### Step 3: Upload Your Work
 
 ```bash
 # Push your committed changes from your local branch to the remote branch
 git push origin your-feature-branch-name
 ```
 
-### STEP 4: MERGING & HANDLING CONFLICTS
+### Step 4: Merging and Handling Conflicts
 
 ```bash
 # 1. Finish your work and commit final changes on your feature branch.
