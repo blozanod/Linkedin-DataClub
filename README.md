@@ -74,6 +74,11 @@ For any specific task, no matter how small, you must create a new feature branch
 
 This process ensures that our main branches remain clean and that all new code is reviewed before being integrated.
 
+As a naming convention, name your branches based on what part of the project it is going into:
+If its part of the frontend: `frontend/_____`
+If its part of the backend -> scraping: `backend/scraping/_____`
+This way we can keep track of what each branch is doing and where it is going to go.
+
 ---
 
 ## 4. Git Commands Tutorial
