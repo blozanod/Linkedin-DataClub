@@ -1,0 +1,4 @@
+File so that 'empty folder' is included
+
+Folder should contain scripts that pass information to helper scripts for testing purposes
+Should be replaced by the frontend
