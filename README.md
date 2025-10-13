@@ -74,6 +74,11 @@ For any specific task, no matter how small, you must create a new feature branch
 
 This process ensures that our main branches remain clean and that all new code is reviewed before being integrated.
 
+As a naming convention, name your branches based on what part of the project it is going into:
+If its part of the frontend: `frontend/_____`
+If its part of the backend -> scraping: `backend/scraping/_____`
+This way we can keep track of what each branch is doing and where it is going to go.
+
 ---
 
 ## 4. Git Commands Tutorial
@@ -149,3 +154,11 @@ git commit -m "fix: resolve merge conflict"
 # 7. Finally, push your updated, conflict-free branch to GitHub
 git push origin your-feature-branch-name
 ```
+
+### Step 5: Pull Requests
+
+Once your branch is stable and the feature is complete, you can generate a pull request. This is done in tandem with `git push`.
+
+You'll get a link in the terminal output that generates a pull request and submits your branch for review so that it is merged into the main branch.
+
+When the pull request is reviewed and approved, then your feature is officially part of the working project!
