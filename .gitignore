@@ -1,4 +1,4 @@
 # Ignore database files
 *.csv
-*.db
+/Backend/Databases/*.db
 *.venv
