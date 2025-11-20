@@ -184,7 +184,6 @@ def getting_data(keywords, jobs_shown=10):
     return df
 
 #convert to sqlalchemy
-
 from sqlalchemy import create_engine
 keywords = 'data analyst'
 jobs_shown = 20

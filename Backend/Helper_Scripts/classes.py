@@ -22,6 +22,7 @@ class Posting(Base):
   views: Mapped[int]
   med_salary: Mapped[int]
   min_salary: Mapped[int]
+  """
   formatted_work_type: Mapped[str]
   applies: Mapped[int]
   original_listed_time: Mapped[int]
@@ -42,6 +43,10 @@ class Posting(Base):
   normalized_salary: Mapped[int]
   zip_code: Mapped[int]
   fips: Mapped[int]
+  """
+
+  def __repr__(self) -> str:
+    return f"<Posting(company_name={self.company_name}, title={self.title})>"
 
   class Resume(Base):
     __tablename__ = "resumes"

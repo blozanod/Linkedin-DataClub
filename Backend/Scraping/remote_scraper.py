@@ -14,6 +14,7 @@ Original file is located at
 
 import requests
 import pandas as pd
+from sqlalchemy import create_engine
 
 def getting_data(keywords, jobs_shown=10):
 
@@ -125,21 +126,12 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', 50)
 
-
-keywords = "engineer"
-jobs_shown = 999999
+keywords = 'engineer'
+jobs_shown = 10
 
 df = getting_data(keywords, jobs_shown=jobs_shown)
 
 print(df)
 
-#sqlalchemy
-
-from sqlalchemy import create_engine
-
-keywords = 'data analyst'
-jobs_shown = 10
-
-df = getting_data(keywords, jobs_shown=jobs_shown)
 engine = create_engine('sqlite:///jobs.db')
 df.to_sql('remoteokjobs', engine, if_exists='replace', index=False)

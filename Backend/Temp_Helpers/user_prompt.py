@@ -2,7 +2,7 @@
 # Gives command line prompts to allow custom filters/sort-by/select resume
 # Additionally, contains example filters/sort-by for quick access
 
-from Databases.classes import Posting, Resume
+from Backend.Helper_Scripts.classes import Posting, Resume
 import random
 from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import Session
