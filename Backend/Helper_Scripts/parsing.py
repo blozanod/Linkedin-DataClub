@@ -70,10 +70,21 @@ def filter_keywords(text):
                     phrases.add(phrase)
                     
     return list(filtered_words) + list(skills) + list(phrases)
-   
+
+# TODO: Calculate similarity score between resume and posting keywords
+def match(resume, posting):
+   return 0
 
 def main() -> None:
     # Get jobs and resume
+    resume_body = getResume() # Contains Full Resume Text
+    resume_keywords = filter_keywords(resume_body)
+
+    # 2D array with each item being key-value pair: [job_id, match_score]
+    # this way, the scores array can be referenced, once sorted, to order the jobs
+    # that best match the resume and display them on the website
+    scores = [] 
+
     with Session_Posting() as session:
         company_postings = get_postings_by_keywords(session, "software engineer")
          
@@ -82,12 +93,17 @@ def main() -> None:
         for posting in company_postings:
             if posting.keywords == None:
                 posting.keywords = filter_keywords(posting.description)
+            
+            # Score resume against current job
+            scores.append([posting.job_id, match(resume_keywords, posting.keywords)])
 
-        # Save updated postings to database
+        # Save updated postings to database (to be able to skip filtering job descriptions on other runs)
         session.commit()
 
-    resume_body = getResume() # Contains Full Resume Text
-    resume_keywords = filter_keywords(resume_body)
+        # Sort scores
+        scores.sort(key=lambda row:row[1], reverse=True)
+
+
 
 
 if __name__ == "__main__":
