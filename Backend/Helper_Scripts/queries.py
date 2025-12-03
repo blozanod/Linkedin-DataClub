@@ -2,7 +2,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, sessionmaker, declarative_base, Session as SessionType
 from sqlalchemy import and_
 
-from Helper_Scripts.classes import Posting
+from classes import Posting
 
 # starting up the database 
 
@@ -14,11 +14,7 @@ Base = declarative_base()
 sort_dict = {
   "company_name": Posting.company_name,
   "title": Posting.title,
-  "listed_time": Posting.listed_time,
-  "salary": Posting.normalized_salary,
-  "views": Posting.views,
-  "applies": Posting.applies,
-  "experience": Posting.formatted_experience_level
+  "description": Posting.description
 }
 
 # Gets all of the postings
@@ -120,9 +116,6 @@ def main() -> None:
     print([posting.company_name for posting in company_postings])
 
     print([posting.title for posting in get_all_postings(session)])
-
-
-  
 
 
 if __name__ == "__main__":

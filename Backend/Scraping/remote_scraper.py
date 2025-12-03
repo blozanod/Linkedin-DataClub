@@ -15,6 +15,9 @@ Original file is located at
 import requests
 import pandas as pd
 from sqlalchemy import create_engine
+from urllib.parse import urlparse
+import hashlib
+import re
 
 def getting_data(keywords, jobs_shown=10):
 
@@ -49,7 +52,9 @@ def getting_data(keywords, jobs_shown=10):
                 """
                 # job_id - used url
                 #COULD ALSO USE "id":"1128286"
-                job_id = job.get('url', None)
+                url = job.get("url") # full url looks like: https://remoteOK.com/remote-jobs/...
+                unique_id = urlparse(url).path.split("/")[-1] # get only last part of url
+                job_id = hashlib.md5(unique_id.encode("utf-8")).hexdigest() # encode as hash
 
                 # company_name
                 company_name = job.get('company', None)
@@ -59,36 +64,30 @@ def getting_data(keywords, jobs_shown=10):
 
                 # description
                 description = job.get('description', None)
+                description_clean = re.sub(r"<[^>]*>", "", description)
+                description_clean = " ".join(description_clean.split())
+
+                # keywords (cleaned up description)
+                keywords = None
 
                 # max_salary
                 max_salary = job.get('salary_max', None)
 
-                # pay_period - couldn't find
-                pay_period = None
-
                 # location
                 location = job.get('location', None)
 
-                # company_id
-                company_id = None
-
-                # views
-                views = None
-
-                # med_salary
-                med_salary = None
+                # Application URL
+                job_url = job.get('url', None)
 
                 job_data = {
                     'job_id': job_id,
                     'company_name': company_name,
                     'title': title,
-                    'description': description,
+                    'description': description_clean,
+                    'keywords': keywords,
                     'max_salary': max_salary,
-                    'pay_period': pay_period,
                     'location': location,
-                    'company_id': company_id,
-                    'views': views,
-                    'med_salary': med_salary
+                    'job_url': job_url
                 }
 
                 jobs_list.append(job_data)
