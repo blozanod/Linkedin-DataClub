@@ -39,6 +39,7 @@ class Posting(Base_Posting):
   max_salary: Mapped[int]
   location: Mapped[str]
   job_url: Mapped[str]
+  tags: Mapped[list] = mapped_column(JSON)
 
   def __repr__(self) -> str:
     return f"<Posting(company_name={self.company_name}, title={self.title})>"
