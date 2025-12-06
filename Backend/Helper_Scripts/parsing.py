@@ -87,9 +87,8 @@ def match(resume, posting):
     cosine_sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
     return cosine_sim
 
-def parse(index):
+def parse(index, resume_body):
     # Get jobs and resume
-    resume_body = getResume() # Contains Full Resume Text
     resume_keywords = filter_keywords(resume_body)
 
     # 2D array with each item being key-value pair: [job_id, match_score]
@@ -138,5 +137,7 @@ RE_EMAIL = re.compile(r'\S+@\S+')
 RE_TAG = re.compile(r'[A-Za-z0-9+/=]{20,}')
 
 if __name__ == "__main__":
-    json_items = parse(index=0)
+    resume_body = getResume() # Contains Full Resume Text
+
+    json_items = parse(index=0, resume_body=resume_body)
     print(json_items[0])
