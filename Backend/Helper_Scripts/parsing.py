@@ -87,7 +87,7 @@ def match(resume, posting):
     cosine_sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
     return cosine_sim
 
-def parse(index, resume_body):
+def parse(index, resume_body, user_keyword):
     # Get jobs and resume
     resume_keywords = filter_keywords(resume_body)
 
@@ -97,7 +97,7 @@ def parse(index, resume_body):
     scores = [] 
 
     with Session_Posting() as session:
-        company_postings = get_postings_by_keywords(session, "software engineer")
+        company_postings = get_postings_by_keywords(session, str(user_keyword))
          
         # For each selected job, check if it has already been cleaned of non keywords
         # if it has not been cleaned, clean it. Else, skip.
@@ -139,5 +139,5 @@ RE_TAG = re.compile(r'[A-Za-z0-9+/=]{20,}')
 if __name__ == "__main__":
     resume_body = getResume() # Contains Full Resume Text
 
-    json_items = parse(index=0, resume_body=resume_body)
+    json_items = parse(index=0, resume_body=resume_body, user_keyword="is")
     print(json_items[0])
