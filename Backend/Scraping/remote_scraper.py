@@ -11,10 +11,20 @@ Original file is located at
 # REMOTEOK JSON SCRAPER - GOOGLE COLAB
 # ==========================================
 # RemoteOK provides a JSON feed - much easier than HTML!
+import sys
+import os
+
+# Add parent directory to Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import requests
 import pandas as pd
 from sqlalchemy import create_engine
+from urllib.parse import urlparse
+import hashlib
+import re
+import time
+from Helper_Scripts.classes import Posting, Session_Posting
 
 def getting_data(keywords, jobs_shown=10):
 
@@ -49,7 +59,9 @@ def getting_data(keywords, jobs_shown=10):
                 """
                 # job_id - used url
                 #COULD ALSO USE "id":"1128286"
-                job_id = job.get('url', None)
+                url = job.get("url") # full url looks like: https://remoteOK.com/remote-jobs/...
+                unique_id = urlparse(url).path.split("/")[-1] # get only last part of url
+                job_id = hashlib.md5(unique_id.encode("utf-8")).hexdigest() # encode as hash
 
                 # company_name
                 company_name = job.get('company', None)
@@ -59,36 +71,34 @@ def getting_data(keywords, jobs_shown=10):
 
                 # description
                 description = job.get('description', None)
+                description_clean = re.sub(r"<[^>]*>", "", description)
+                description_clean = " ".join(description_clean.split())
+
+                # keywords (cleaned up description)
+                keywords = None
 
                 # max_salary
                 max_salary = job.get('salary_max', None)
 
-                # pay_period - couldn't find
-                pay_period = None
-
                 # location
                 location = job.get('location', None)
 
-                # company_id
-                company_id = None
+                # Application URL
+                job_url = job.get('url', None)
 
-                # views
-                views = None
-
-                # med_salary
-                med_salary = None
+                # Tags
+                job_tags = job.get('tags', None)
 
                 job_data = {
                     'job_id': job_id,
                     'company_name': company_name,
                     'title': title,
-                    'description': description,
+                    'description': description_clean,
+                    'keywords': keywords,
                     'max_salary': max_salary,
-                    'pay_period': pay_period,
                     'location': location,
-                    'company_id': company_id,
-                    'views': views,
-                    'med_salary': med_salary
+                    'job_url': job_url,
+                    'tags': job_tags
                 }
 
                 jobs_list.append(job_data)
@@ -105,33 +115,75 @@ def getting_data(keywords, jobs_shown=10):
 
     return df
 
-'''
-#RUN UR SCRAPER i hope it works
-# - your older brother
-
 pd.set_option('display.max_rows', None)
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_colwidth', 50)
 
+keywords = [
+  "software", "engineering", "engineer", "developer", "tech", "it",
+  "product", "operations", "manager", "senior", "junior",
+  "management", "consulting", "finance", "financial", "accounting",
+  "legal", "hr", "recruiting", "admin", "intern", "internship"
+  "sales", "marketing", "growth", "customer-support",
+  "support", "writing", "copywriting", "content",
+  "design", "creative", "ui-ux", "media", "video", "editor",
+  "analytics", "qa", "security", "health", "healthcare", "medical",
+  "education", "teaching", "trainer", "architect",
+  "logistics", "supply-chain", "manufacturing", "hardware"
+]
 
-keywords = "engineer"
-jobs_shown = 999999
+all_jobs = []
 
-df = getting_data(keywords, jobs_shown=jobs_shown)
+print("Scraping RemoteOK...")
 
-print(df)
-'''
+# Cycle through keywords
+for keyword in keywords:
+    print(f"Fetching: {keyword}")
+    df_kw = getting_data(keyword)
+    all_jobs.append(df_kw)
+    time.sleep(0.75)
 
-pd.set_option('display.max_rows', None)
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_colwidth', 50)
+# Keep only new jobs
+df_new = pd.concat(all_jobs, ignore_index=True)
 
-keywords = 'engineer'
-jobs_shown = 10
+df_new.drop_duplicates(subset='job_id', inplace=True)
 
-df = getting_data(keywords, jobs_shown=jobs_shown)
+print(f"Scraped {len(df_new)} unique jobs!")
 
-print(df)
-
+# Update database
 engine = create_engine('sqlite:///jobs.db')
-df.to_sql('remoteokjobs', engine, if_exists='replace', index=False)
+
+try:
+    df_existing = pd.read_sql('remoteokjobs', engine)
+    print(f"Existing jobs in DB: {len(df_existing)}")
+
+except:
+    df_existing = pd.DataFrame(columns=df_new.columns)
+    print("No existing DB table found — creating new one.")
+
+# Find new jobs only
+df_to_add = df_new[~df_new.job_id.isin(df_existing.job_id)]
+
+print(f"New jobs to insert: {len(df_to_add)}")
+
+# Append
+session = Session_Posting()
+
+for _, row in df_to_add.iterrows():
+    posting = Posting(
+        job_id = row['job_id'],
+        company_name = row['company_name'],
+        title = row['title'],
+        description = row['description'],
+        keywords = row['keywords'] if isinstance(row['keywords'], list) else [],
+        max_salary = row['max_salary'],
+        location = row['location'],
+        job_url = row['job_url'],
+        tags = row['tags'] if isinstance(row['tags'], list) else []
+    )
+    session.add(posting)
+
+session.commit()
+session.close()
+
+print("Database updated via SQLAlchemy ORM.")

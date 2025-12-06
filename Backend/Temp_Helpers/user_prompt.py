@@ -4,12 +4,19 @@
 
 from Backend.Helper_Scripts.classes import Posting, Resume
 import random
-from sqlalchemy import create_engine, select, func
+import sqlalchemy as sa
+from sqlalchemy import create_engine, sessionmaker, declarative_base, select, func
 from sqlalchemy.orm import Session
 
-# Database Filepaths
-RESUME_DB = "../Databases/resumes.db"
-POSTINGS_DB = "../Databases/postings.db"
+# Postings Session
+postings_db = sa.create_engine("sqlite:///jobs.db") # THIS WILL CHANGE BASED ON WINDOWS/MAC
+Session_Posting = sessionmaker(bind=postings_db) # functions as the workspace
+Base_Posting = declarative_base()
+
+# Resumes Session
+resumes_db = sa.create_engine("sqlite:///resumes.db") # THIS WILL CHANGE BASED ON WINDOWS/MAC
+Session_Resume = sessionmaker(bind=resumes_db) # functions as the workspace
+Base_Resume = declarative_base()
 
 # Prompts user for a set of filters & calls helper function
 def getFilter():
@@ -85,17 +92,16 @@ def getSort():
 
 # Randomly selects resume & calls helper function
 def getResume():
-    engine = create_engine(f"sqlite:///{RESUME_DB}")
-    session = Session(engine)
+    stmt = select(Resume.ID, Resume.Resume_str
+                  ).where(Resume.Category == "ENGINEERING"
+                  ).order_by(func.random())
+    
+    with Session_Resume() as session:
+      arr = session.execute(stmt).first()
 
-    try:
-        ids = session.scalars(select(Resume.ID)).all()
-        random_id = random.choice(ids)
-        resume_obj = session.get(Resume, random_id)
-        return resume_obj.Resume_str
+    print(f"Found:  {str(len(arr))} results (should be 2)")
 
-    finally:
-        session.close()
+    return arr[1]
 
 # Directs user to helper functions
 def main():
