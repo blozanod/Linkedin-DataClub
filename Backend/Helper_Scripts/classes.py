@@ -43,6 +43,16 @@ class Posting(Base_Posting):
 
   def __repr__(self) -> str:
     return f"<Posting(company_name={self.company_name}, title={self.title})>"
+  
+  def to_dict(self):
+        return {
+            'company_name': self.company_name,
+            'title': self.title,
+            'description': self.description,
+            'max_salary': self.max_salary,
+            'location': self.location,
+            'job_url': self.job_url,
+        }
 
 class Resume(Base_Resume):
   __tablename__ = "resumes"
