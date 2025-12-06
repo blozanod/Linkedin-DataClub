@@ -2,7 +2,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, sessionmaker, declarative_base, Session as SessionType
 from sqlalchemy import and_
 
-from classes import Posting
+from .classes import Posting
 
 # starting up the database 
 
