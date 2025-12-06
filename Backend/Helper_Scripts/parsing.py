@@ -1,8 +1,8 @@
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session as SessionType
-from classes import Posting, Resume, Session_Posting, Session_Resume
-from queries import get_postings_by_keywords
-from non_keywords import MASTER_NON_KEYWORDS
+from .classes import Posting, Resume, Session_Posting, Session_Resume
+from .queries import get_postings_by_keywords
+from .non_keywords import MASTER_NON_KEYWORDS
 import spacy
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
