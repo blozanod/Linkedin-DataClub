@@ -1,7 +1,7 @@
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session as SessionType
 from .classes import Posting, Resume, Session_Posting, Session_Resume
-from .queries import get_postings_by_keywords
+from .queries import get_all_postings
 from .non_keywords import MASTER_NON_KEYWORDS
 import spacy
 import re
@@ -87,7 +87,7 @@ def match(resume, posting):
     cosine_sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
     return cosine_sim
 
-def parse(index, resume_body, user_keyword):
+def parse(index, resume_body):
     # Get jobs and resume
     resume_keywords = filter_keywords(resume_body)
 
@@ -97,7 +97,7 @@ def parse(index, resume_body, user_keyword):
     scores = [] 
 
     with Session_Posting() as session:
-        company_postings = get_postings_by_keywords(session, str(user_keyword))
+        company_postings = get_all_postings(session)
          
         # For each selected job, check if it has already been cleaned of non keywords
         # if it has not been cleaned, clean it. Else, skip.
