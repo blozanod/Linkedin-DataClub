@@ -115,7 +115,10 @@ def parse(index, resume_body, user_keyword):
     scores.sort(key=lambda row:row[1], reverse=True)
 
     # Package top 20 jobs into JSON file
-    top_job_ids = [scores[i][0] for i in range(index, index + 20)]
+    start = index * 20
+    end = min((index + 1) * 20, len(scores))
+
+    top_job_ids = [scores[i][0] for i in range(start, end)]
 
     stmt = select(Posting.company_name, Posting.title, Posting.description, Posting.location, Posting.max_salary
                     ).where(Posting.job_id.in_(top_job_ids) # Select from job_ids
