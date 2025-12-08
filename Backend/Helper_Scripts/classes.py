@@ -1,6 +1,7 @@
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, sessionmaker, declarative_base, Session as SessionType
 from sqlalchemy import JSON
+from sqlalchemy.pool import NullPool
 import os
 
 # Path to this script
@@ -19,27 +20,39 @@ RESUME_PATH = os.path.join(RESUME_DIR, "resumes.db")
 JOBS_PATH = os.path.join(JOBS_DIR, "jobs.db")
 
 # Postings Session
-postings_db = sa.create_engine(f"sqlite:///{JOBS_PATH}")
-Session_Posting = sessionmaker(bind=postings_db) # functions as the workspace
+# Use NullPool and disable check_same_thread to avoid SQLite "database is locked"
+# errors when multiple threads access the DB (background scraper + web requests).
+postings_db = sa.create_engine(
+  f"sqlite:///{JOBS_PATH}",
+  connect_args={"check_same_thread": False},
+  poolclass=NullPool,
+)
+Session_Posting = sessionmaker(bind=postings_db)
 Base_Posting = declarative_base()
 
 # Resumes Session
-resumes_db = sa.create_engine(f"sqlite:///{RESUME_PATH}")
-Session_Resume = sessionmaker(bind=resumes_db) # functions as the workspace
+resumes_db = sa.create_engine(
+  f"sqlite:///{RESUME_PATH}",
+  connect_args={"check_same_thread": False},
+  poolclass=NullPool,
+)
+Session_Resume = sessionmaker(bind=resumes_db)
 Base_Resume = declarative_base()
 
 class Posting(Base_Posting):
   __tablename__ = "remoteokjobs"
 
-  job_id: Mapped[int] = mapped_column(primary_key=True, unique=True)
+  job_id: Mapped[str] = mapped_column(primary_key=True, unique=True)
   company_name: Mapped[str]
   title: Mapped[str]
+  title_keywords: Mapped[list] = mapped_column(JSON)
   description: Mapped[str]
   keywords: Mapped[list] = mapped_column(JSON)
   max_salary: Mapped[int]
   location: Mapped[str]
   job_url: Mapped[str]
   tags: Mapped[list] = mapped_column(JSON)
+  tags_keywords: Mapped[list] = mapped_column(JSON)
 
   def __repr__(self) -> str:
     return f"<Posting(company_name={self.company_name}, title={self.title})>"
@@ -50,8 +63,9 @@ class Posting(Base_Posting):
             'title': self.title,
             'description': self.description,
             'max_salary': self.max_salary,
-            'location': self.location,
-            'job_url': self.job_url,
+        'location': self.location,
+        'job_url': self.job_url,
+        'tags': self.tags if self.tags is not None else [],
         }
 
 class Resume(Base_Resume):

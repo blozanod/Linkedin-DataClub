@@ -20,11 +20,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import requests
 import pandas as pd
 from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
 from urllib.parse import urlparse
 import hashlib
 import re
 import time
-from Helper_Scripts.classes import Posting, Session_Posting
+from Helper_Scripts.classes import Posting, Session_Posting, Base_Posting
+from sqlalchemy.dialects.sqlite import insert
 
 def getting_data(keywords, jobs_shown=10):
 
@@ -69,6 +71,8 @@ def getting_data(keywords, jobs_shown=10):
                 # title
                 title = job.get('position', None)
 
+                title_keywords = None
+
                 # description
                 description = job.get('description', None)
                 description_clean = re.sub(r"<[^>]*>", "", description)
@@ -89,16 +93,20 @@ def getting_data(keywords, jobs_shown=10):
                 # Tags
                 job_tags = job.get('tags', None)
 
+                tags_keywords = None
+
                 job_data = {
                     'job_id': job_id,
                     'company_name': company_name,
                     'title': title,
+                    'title_keywords': title_keywords,
                     'description': description_clean,
                     'keywords': keywords,
                     'max_salary': max_salary,
                     'location': location,
                     'job_url': job_url,
-                    'tags': job_tags
+                    'tags': job_tags,
+                    'tags_keywords': tags_keywords
                 }
 
                 jobs_list.append(job_data)
@@ -124,7 +132,7 @@ keywords = [
   "product", "operations", "manager", "senior", "junior",
   "management", "consulting", "finance", "financial", "accounting",
   "legal", "hr", "recruiting", "admin", "intern", "internship"
-  "sales", "marketing", "growth", "customer-support",
+    , "sales", "marketing", "growth", "customer-support",
   "support", "writing", "copywriting", "content",
   "design", "creative", "ui-ux", "media", "video", "editor",
   "analytics", "qa", "security", "health", "healthcare", "medical",
@@ -133,57 +141,97 @@ keywords = [
 ]
 
 all_jobs = []
+def scraper():
+    print("Scraping RemoteOK...")
 
-print("Scraping RemoteOK...")
+    # Cycle through keywords
+    for keyword in keywords:
+        print(f"Fetching: {keyword}")
+        df_kw = getting_data(keyword)
+        all_jobs.append(df_kw)
+        time.sleep(0.75)
 
-# Cycle through keywords
-for keyword in keywords:
-    print(f"Fetching: {keyword}")
-    df_kw = getting_data(keyword)
-    all_jobs.append(df_kw)
-    time.sleep(0.75)
+    # Keep only new jobs
+    df_new = pd.concat(all_jobs, ignore_index=True)
 
-# Keep only new jobs
-df_new = pd.concat(all_jobs, ignore_index=True)
+    df_new.drop_duplicates(subset='job_id', inplace=True)
 
-df_new.drop_duplicates(subset='job_id', inplace=True)
+    print(f"Scraped {len(df_new)} unique jobs!")
 
-print(f"Scraped {len(df_new)} unique jobs!")
-
-# Update database
-engine = create_engine('sqlite:///jobs.db')
-
-try:
-    df_existing = pd.read_sql('remoteokjobs', engine)
-    print(f"Existing jobs in DB: {len(df_existing)}")
-
-except:
-    df_existing = pd.DataFrame(columns=df_new.columns)
-    print("No existing DB table found — creating new one.")
-
-# Find new jobs only
-df_to_add = df_new[~df_new.job_id.isin(df_existing.job_id)]
-
-print(f"New jobs to insert: {len(df_to_add)}")
-
-# Append
-session = Session_Posting()
-
-for _, row in df_to_add.iterrows():
-    posting = Posting(
-        job_id = row['job_id'],
-        company_name = row['company_name'],
-        title = row['title'],
-        description = row['description'],
-        keywords = row['keywords'] if isinstance(row['keywords'], list) else [],
-        max_salary = row['max_salary'],
-        location = row['location'],
-        job_url = row['job_url'],
-        tags = row['tags'] if isinstance(row['tags'], list) else []
+    # Update database
+    # Use NullPool and disable same-thread check so background scraper
+    # and web requests can access the SQLite file without locking issues.
+    engine = create_engine(
+        'sqlite:///jobs.db',
+        connect_args={"check_same_thread": False},
+        poolclass=NullPool,
     )
-    session.add(posting)
+    Base_Posting.metadata.create_all(engine)
 
-session.commit()
-session.close()
+    try:
+        df_existing = pd.read_sql('remoteokjobs', engine)
+        print(f"Existing jobs in DB: {len(df_existing)}")
 
-print("Database updated via SQLAlchemy ORM.")
+    except:
+        df_existing = pd.DataFrame(columns=df_new.columns)
+        print("No existing DB table found — creating new one.")
+
+    # Find new jobs only
+    df_to_add = df_new[~df_new.job_id.isin(df_existing.job_id)]
+
+    print(f"New jobs to insert: {len(df_to_add)}")
+
+    # Append
+    session = Session_Posting()
+
+    for _, row in df_to_add.iterrows():
+        posting = Posting(
+            job_id = row['job_id'],
+            company_name = row['company_name'],
+            title = row['title'],
+            title_keywords = row['title_keywords']  if isinstance(row['keywords'], list) else [],
+            description = row['description'],
+            keywords = row['keywords'] if isinstance(row['keywords'], list) else [],
+            max_salary = row['max_salary'],
+            location = row['location'],
+            job_url = row['job_url'],
+            tags = row['tags'] if isinstance(row['tags'], list) else [],
+            tags_keywords = row['tags_keywords'] if isinstance(row['keywords'], list) else [],
+        )
+        for _, row in df_new.iterrows():
+            stmt = insert(Posting).values(
+                job_id = row['job_id'],
+                company_name = row['company_name'],
+                title = row['title'],
+                title_keywords = row['title_keywords'],
+                description = row['description'],
+                keywords = row['keywords'],
+                max_salary = row['max_salary'],
+                location = row['location'],
+                job_url = row['job_url'],
+                tags = row['tags'],
+                tags_keywords = row['tags_keywords'],
+            )
+
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['job_id'],
+                set_={
+                    "company_name": row['company_name'],
+                    "title": row['title'],
+                    "description": row['description'],
+                    "max_salary": row['max_salary'],
+                    "location": row['location'],
+                    "job_url": row['job_url'],
+                    "tags": row['tags'],
+                }
+            )
+
+            session.execute(stmt)
+
+    session.commit()
+    session.close()
+
+    print("Database updated via SQLAlchemy ORM.")
+
+if __name__ == "__main__":
+    scraper()

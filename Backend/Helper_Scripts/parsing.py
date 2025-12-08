@@ -75,9 +75,25 @@ def filter_keywords(text):
 
 # TODO: Calculate similarity score between resume and posting keywords
 def match(resume, posting):
-    # Make arrays into strings
-    resume_str = " ".join(resume)
-    posting_str = " ".join(posting)
+    # Normalize inputs into strings. `resume` and `posting` may be lists
+    # (keywords), but can also be None or plain strings depending on DB state.
+    if isinstance(resume, (list, tuple)):
+        resume_str = " ".join([str(x) for x in resume])
+    else:
+        resume_str = str(resume or "")
+
+    if isinstance(posting, (list, tuple)):
+        posting_str = " ".join([str(x) for x in posting])
+    elif isinstance(posting, str):
+        posting_str = posting
+    elif posting is None:
+        posting_str = ""
+    else:
+        # Fallback: try to coerce to list-like, else stringify
+        try:
+            posting_str = " ".join([str(x) for x in posting])
+        except Exception:
+            posting_str = str(posting)
 
     # Vectorize strings
     vectorizer = TfidfVectorizer()
@@ -102,11 +118,28 @@ def parse(index, resume_body):
         # For each selected job, check if it has already been cleaned of non keywords
         # if it has not been cleaned, clean it. Else, skip.
         for posting in company_postings:
-            if posting.keywords == []:
-                posting.keywords = filter_keywords(posting.description)
-            
+            # Ensure keyword fields are lists so matching code can join them safely
+            if not posting.keywords or not isinstance(posting.keywords, list):
+                posting.keywords = filter_keywords(posting.description or "")
+
             # Score resume against current job
-            scores.append([posting.job_id, match(resume_keywords, posting.keywords)])
+            if not posting.title_keywords or not isinstance(posting.title_keywords, list):
+                posting.title_keywords = filter_keywords(posting.title or "")
+
+            if not posting.tags_keywords or not isinstance(posting.tags_keywords, list):
+                tags_text = " ".join(posting.tags) if (posting.tags and isinstance(posting.tags, list)) else ""
+                posting.tags_keywords = filter_keywords(tags_text)
+
+            raw_scores = [
+                match(resume_keywords, posting.keywords),
+                match(resume_keywords, posting.title_keywords),
+                match(resume_keywords, posting.tags_keywords)
+            ]
+
+            score = raw_scores[0] + 5 * raw_scores[1] + 3 * raw_scores[2]
+
+            scores.append([posting.job_id, score])
+            print(f"Finished processing job: {posting.job_id}")
 
         # Save updated postings to database (to be able to skip filtering job descriptions on other runs)
         session.commit()
@@ -116,11 +149,11 @@ def parse(index, resume_body):
 
     # Package top 20 jobs into JSON file
     start = index * 20
-    end = min((index + 1) * 20, len(scores))
+    end = len(scores)
 
     top_job_ids = [scores[i][0] for i in range(start, end)]
 
-    stmt = select(Posting.company_name, Posting.title, Posting.description, Posting.location, Posting.max_salary
+    stmt = select(Posting.company_name, Posting.title, Posting.description, Posting.location, Posting.max_salary, Posting.tags
                     ).where(Posting.job_id.in_(top_job_ids) # Select from job_ids
                     )
 
@@ -130,8 +163,33 @@ def parse(index, resume_body):
 
         postings = session.execute(stmt).scalars().all()
 
-    json_items = [p.to_dict() for p in postings]
+    # Preserve the order from top_job_ids (most similar -> least similar).
+    # SQL IN() does not guarantee order, so build a lookup and re-order.
+    posting_map = {p.job_id: p for p in postings}
+    ordered_postings = [posting_map[jid] for jid in top_job_ids if jid in posting_map]
+
+    json_items = [p.to_dict() for p in ordered_postings]
     return json_items
+
+
+# Tag filters exposed for frontend
+# These are the canonical tags we use when collecting postings and exposing
+# tag-based filters in the frontend. The frontend currently extracts the
+# available tags from the `tags` property of each job object returned by
+# the `/get_jobs` API; this constant documents the intended set and can be
+# used by other tooling if you want a fixed whitelist of filters.
+TAG_FILTERS = [
+    "software", "engineering", "engineer", "developer", "tech", "it",
+    "product", "operations", "manager", "senior", "junior",
+    "management", "consulting", "finance", "financial", "accounting",
+    "legal", "hr", "recruiting", "admin", "intern", "internship",
+    "sales", "marketing", "growth", "customer-support",
+    "support", "writing", "copywriting", "content",
+    "design", "creative", "ui-ux", "media", "video", "editor",
+    "analytics", "qa", "security", "health", "healthcare", "medical",
+    "education", "teaching", "trainer", "architect",
+    "logistics", "supply-chain", "manufacturing", "hardware",
+]
 
 
 nlp = spacy.load("en_core_web_sm")
